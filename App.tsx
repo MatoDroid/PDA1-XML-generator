@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import type { FormDataState, Address } from './types';
+import type { FormDataState, Address, PostingPlace } from './types';
 import FormSection from './components/FormSection';
 import InputField from './components/InputField';
 import SelectField from './components/SelectField';
@@ -12,6 +12,7 @@ import { generateA1Xml, parseBirthDateFromRc } from './utils';
 import { useRpo } from './hooks/useRpo';
 
 const emptyAddress: Address = { ulica: '', supisneCislo: '', orientacneCislo: '', obec: '', psc: '', stat: 'Slovenská republika' };
+const emptyPlace: PostingPlace = { nazov: '', ico: '', adresa: { ...emptyAddress, stat: '' } };
 
 const initialFormData: FormDataState = {
   titulPred: '', meno: '', priezvisko: '', rodnePriezvisko: '', titulZa: '', rodneCislo: '', datumNarodenia: '', miestoNarodenia: '',
@@ -21,8 +22,8 @@ const initialFormData: FormDataState = {
   zadatKorespodencnuAdresu: false, korespodencnaAdresa: { ...emptyAddress },
   ico: '', obchodneMeno: '', datumZaciatkuCinnosti: '', identifikacneCisloVSocialnejPoistovni: '', cinnostSZCONaSlovensku: '', skNace: '3',
   zadatAdresuMiestaPodnikania: false, adresaMiestaPodnikania: { ...emptyAddress },
-  statVyslania: '', adresaVyslania: { ...emptyAddress, stat: '' }, datumZaciatkuVyslania: '', datumKoncaVyslania: '',
-  obchodneMenoPrijimajucejOsoby: '', icoPrijimajucejOsoby: '', popisCinnosti: '',
+  statVyslania: '', miestaVyslania: [{ ...emptyPlace }], datumZaciatkuVyslania: '', datumKoncaVyslania: '',
+  popisCinnosti: '',
   obvykleMiestoVykonuCinnosti: true, nahradenieOsoby: false, vykonavanieCinnostiPreInuOsobu: false, najomPracovnejSily: false,
   pobocka: 'BA', poznamka: '', isForeigner: false
 };
@@ -62,7 +63,9 @@ const App: React.FC = () => {
       if (name.includes('.')) {
         const [parent, child] = name.split('.');
         const parentKey = parent as keyof FormDataState;
-        newState = { ...newState, [parentKey]: { ...(newState[parentKey] as object), [child]: value } };
+        if (parentKey !== 'miestaVyslania') {
+           newState = { ...newState, [parentKey]: { ...(newState[parentKey] as object), [child]: value } };
+        }
       } else {
         newState = { ...newState, [name]: type === 'checkbox' ? checked : value };
       }
@@ -73,6 +76,44 @@ const App: React.FC = () => {
       return newState;
     });
   }, []);
+
+  const handlePlaceChange = (index: number, field: string, value: string) => {
+    setFormData(prev => {
+      const newPlaces = [...prev.miestaVyslania];
+      if (field.includes('.')) {
+        const [addrKey, addrField] = field.split('.');
+        if (addrKey === 'adresa') {
+            newPlaces[index] = {
+                ...newPlaces[index],
+                adresa: { ...newPlaces[index].adresa, [addrField]: value }
+            };
+        }
+      } else {
+        newPlaces[index] = { ...newPlaces[index], [field as keyof PostingPlace]: value };
+      }
+      
+      let newStatVyslania = prev.statVyslania;
+      if (index === 0 && field === 'adresa.stat') {
+          newStatVyslania = value;
+      }
+
+      return { ...prev, miestaVyslania: newPlaces, statVyslania: newStatVyslania };
+    });
+  };
+
+  const addPlace = () => {
+    setFormData(prev => ({
+      ...prev,
+      miestaVyslania: [...prev.miestaVyslania, { ...emptyPlace, adresa: { ...emptyAddress, stat: prev.statVyslania || '' } }]
+    }));
+  };
+
+  const removePlace = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      miestaVyslania: prev.miestaVyslania.filter((_, i) => i !== index)
+    }));
+  };
 
   if (step === 'welcome') {
     return (
@@ -132,7 +173,17 @@ const App: React.FC = () => {
             <InputField label="Miesto narodenia" id="miestoNarodenia" name="miestoNarodenia" value={formData.miestoNarodenia} onChange={handleChange} />
             <SelectField label="Štát narodenia" id="statNarodenia" name="statNarodenia" value={formData.statNarodenia} onChange={handleChange} options={COUNTRIES} />
             <SelectField label="Štátna príslušnosť" id="statnaPrislusnost" name="statnaPrislusnost" value={formData.statnaPrislusnost} onChange={handleChange} options={COUNTRIES} />
-            <SelectField label="Pohlavie" id="pohlavie" name="pohlavie" value={formData.pohlavie} onChange={handleChange} options={['1', '2']} />
+            <SelectField 
+              label="Pohlavie" 
+              id="pohlavie" 
+              name="pohlavie" 
+              value={formData.pohlavie} 
+              onChange={handleChange} 
+              options={[
+                { value: '1', label: 'Muž' },
+                { value: '2', label: 'Žena' }
+              ]} 
+            />
             <InputField label="E-mail" id="email" name="email" type="email" value={formData.email} onChange={handleChange} required />
             <InputField label="Telefón" id="telefon" name="telefon" type="tel" value={formData.telefon} onChange={handleChange} required />
             <CheckboxField label="Mám pobytový preukaz v SR" id="pobytovyPreukaz" name="pobytovyPreukaz" checked={formData.pobytovyPreukaz} onChange={handleChange} />
@@ -161,16 +212,71 @@ const App: React.FC = () => {
           <FormSection title="3. Údaje o vyslaní a doručení">
             <InputField label="Začiatok vyslania" id="datumZaciatkuVyslania" name="datumZaciatkuVyslania" type="date" value={formData.datumZaciatkuVyslania} onChange={handleChange} required />
             <InputField label="Koniec vyslania" id="datumKoncaVyslania" name="datumKoncaVyslania" type="date" value={formData.datumKoncaVyslania} onChange={handleChange} required />
-            <InputField label="Obchodné meno prijímajúcej osoby" id="obchodneMenoPrijimajucejOsoby" name="obchodneMenoPrijimajucejOsoby" value={formData.obchodneMenoPrijimajucejOsoby} onChange={handleChange} required gridSpan="md:col-span-3" />
+            
             <div className="md:col-span-3 mt-4 border-t border-gray-200 dark:border-gray-700 pt-6">
-                 <h3 className="text-lg font-medium mb-4">Adresa v štáte vyslania</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <SelectField label="Štát" id="statVyslania" name="statVyslania" value={formData.statVyslania} onChange={handleChange} required options={COUNTRIES} />
-                    <AddressFields address={formData.adresaVyslania} namePrefix="adresaVyslania" onChange={handleChange} required showStat={false} />
-                 </div>
+               <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Miesta výkonu činnosti v zahraničí</h3>
+               
+               {formData.miestaVyslania.map((place, index) => (
+                  <div key={index} className="mb-6 p-5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-slate-800/50 relative">
+                     <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Miesto #{index + 1}</h4>
+                        {formData.miestaVyslania.length > 1 && (
+                            <button 
+                                type="button"
+                                onClick={() => removePlace(index)}
+                                className="text-red-500 hover:text-red-700 text-sm font-medium px-2 py-1"
+                            >
+                                Odstrániť
+                            </button>
+                        )}
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                        <InputField 
+                            label="Obchodné meno prijímajúcej osoby" 
+                            id={`place-${index}-nazov`} 
+                            name="nazov" 
+                            value={place.nazov} 
+                            onChange={(e) => handlePlaceChange(index, 'nazov', e.target.value)} 
+                            required={index === 0} 
+                            gridSpan="md:col-span-2"
+                        />
+                         <InputField 
+                            label="IČO prijímajúcej osoby" 
+                            id={`place-${index}-ico`} 
+                            name="ico" 
+                            value={place.ico} 
+                            onChange={(e) => handlePlaceChange(index, 'ico', e.target.value)} 
+                        />
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <AddressFields 
+                            address={place.adresa} 
+                            namePrefix={`place-${index}`} 
+                            onChange={(e) => {
+                                const fieldName = e.target.name.split('.').pop();
+                                handlePlaceChange(index, `adresa.${fieldName}`, e.target.value);
+                            }} 
+                            required={index === 0} 
+                            showStat={true}
+                        />
+                     </div>
+                  </div>
+               ))}
+               
+               <button 
+                type="button" 
+                onClick={addPlace}
+                className="flex items-center text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors border border-dashed border-blue-300 dark:border-blue-700 w-full justify-center"
+               >
+                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                 Pridať ďalšie miesto výkonu činnosti
+               </button>
             </div>
-            <SelectField label="Príslušná pobočka SP" id="pobocka" name="pobocka" value={formData.pobocka} onChange={handleChange} options={BRANCH_OFFICES.map(b => b.name)} />
-            <InputField label="Doplňujúce informácie" id="poznamka" name="poznamka" type="textarea" value={formData.poznamka} onChange={handleChange} gridSpan="md:col-span-2" />
+            
+            <div className="md:col-span-3 mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+                <SelectField label="Príslušná pobočka SP" id="pobocka" name="pobocka" value={formData.pobocka} onChange={handleChange} options={BRANCH_OFFICES.map(b => b.name)} />
+                <InputField label="Doplňujúce informácie" id="poznamka" name="poznamka" type="textarea" value={formData.poznamka} onChange={handleChange} gridSpan="md:col-span-2 mt-4" />
+            </div>
           </FormSection>
           
           <div className="mt-12 flex justify-center pb-12">

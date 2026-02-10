@@ -1,9 +1,14 @@
 
 import React from 'react';
 
+interface OptionObject {
+  value: string;
+  label: string;
+}
+
 interface SelectFieldProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
-  options: string[];
+  options: (string | OptionObject)[];
   gridSpan?: string;
 }
 
@@ -19,9 +24,16 @@ const SelectField: React.FC<SelectFieldProps> = ({ label, id, options, gridSpan 
         {...props}
       >
         <option value="">Vyberte možnosť...</option>
-        {options.map(option => (
-          <option key={option} value={option}>{option}</option>
-        ))}
+        {options.map(option => {
+          const isObject = typeof option !== 'string';
+          const value = isObject ? option.value : option;
+          const labelText = isObject ? option.label : option;
+          return (
+            <option key={value} value={value}>
+              {labelText}
+            </option>
+          );
+        })}
       </select>
     </div>
   );

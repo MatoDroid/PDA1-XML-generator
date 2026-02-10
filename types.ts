@@ -8,6 +8,12 @@ export interface Address {
   stat: string;
 }
 
+export interface PostingPlace {
+  nazov: string;
+  ico: string;
+  adresa: Address;
+}
+
 export interface FormDataState {
   // Ziadatel
   titulPred: string;
@@ -44,12 +50,10 @@ export interface FormDataState {
   adresaMiestaPodnikania: Address;
 
   // Vyslanie
-  statVyslania: string;
-  adresaVyslania: Address;
+  statVyslania: string; // Hlavný štát vyslania (zvyčajne prvý alebo prevažujúci)
+  miestaVyslania: PostingPlace[];
   datumZaciatkuVyslania: string;
   datumKoncaVyslania: string;
-  obchodneMenoPrijimajucejOsoby: string;
-  icoPrijimajucejOsoby: string;
   popisCinnosti: string;
   
   obvykleMiestoVykonuCinnosti: boolean;

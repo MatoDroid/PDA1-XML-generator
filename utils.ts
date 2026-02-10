@@ -1,6 +1,6 @@
 
 import { FormDataState, Address } from './types';
-import { COUNTRY_MAP } from './constants';
+import { COUNTRY_MAP, BRANCH_OFFICES, NACE_CATEGORIES } from './constants';
 
 export const escapeXml = (unsafe: string): string => {
   if (typeof unsafe !== 'string') return '';
@@ -54,6 +54,19 @@ const renderPhysicalAddress = (addr: Address) => `
 export const generateA1Xml = (formData: FormDataState): void => {
   const today = new Date().toISOString().split('T')[0];
   
+  // Zistenie hlavného štátu vyslania
+  const mainCountry = formData.miestaVyslania[0]?.adresa.stat || formData.statVyslania || 'Nemecko';
+
+  // Logika pre získanie kódu a názvu pobočky (input môže byť kód 'BA' alebo názov 'Bratislava')
+  const selectedBranch = BRANCH_OFFICES.find(b => b.name === formData.pobocka) || BRANCH_OFFICES.find(b => b.code === formData.pobocka);
+  const branchCode = selectedBranch ? selectedBranch.code : (formData.pobocka || 'BA');
+  const branchName = selectedBranch ? selectedBranch.name : 'Bratislava';
+
+  // Logika pre SK NACE (input je zvyčajne názov z dropdownu)
+  const selectedNace = NACE_CATEGORIES.find(n => n.name === formData.skNace);
+  const naceCode = selectedNace ? selectedNace.code : '3';
+  const naceName = selectedNace ? selectedNace.name : (formData.skNace || 'F – Stavebníctvo');
+
   const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <ApplicationForTheIssueOfAPortableDocumentDueToSzcoPosting xmlns="http://schemas.gov.sk/form/30807484.Ziadost_o_vystavenie_prenosneho_dokumentu_A1_z_dovodu_vyslania_SZCO.sk.pda/12.0">
   <Applicant>
@@ -107,25 +120,26 @@ export const generateA1Xml = (formData: FormDataState): void => {
       <RetainingPremises>true</RetainingPremises>
     </SZCO>
     <Places>
-      ${renderCodelist('Country', 'CL000086', COUNTRY_MAP[formData.statVyslania] || '276', formData.statVyslania)}
+      ${renderCodelist('Country', 'CL000086', COUNTRY_MAP[mainCountry] || '276', mainCountry)}
+      ${formData.miestaVyslania.map(place => `
       <Place>
         <PersonData>
           <CorporateBody>
-            <CorporateBodyFullName>${escapeXml(formData.obchodneMenoPrijimajucejOsoby)}</CorporateBodyFullName>
+            <CorporateBodyFullName>${escapeXml(place.nazov)}</CorporateBodyFullName>
           </CorporateBody>
-          ${renderPhysicalAddress(formData.adresaVyslania)}
+          ${renderPhysicalAddress(place.adresa)}
           <ID>
             ${renderCodelist('IdentifierType', 'CL004001', '7', 'IČO (Identifikačné číslo organizácie)')}
-            <IdentifierValue>${escapeXml(formData.icoPrijimajucejOsoby || '00000000')}</IdentifierValue>
+            <IdentifierValue>${escapeXml(place.ico || '00000000')}</IdentifierValue>
           </ID>
         </PersonData>
-      </Place>
+      </Place>`).join('')}
     </Places>
     <SendingDuration>
       <Start>${escapeXml(formData.datumZaciatkuVyslania)}</Start>
       <End>${escapeXml(formData.datumKoncaVyslania)}</End>
     </SendingDuration>
-    ${renderCodelist('EconomicClassification', 'ICL001013', formData.skNace || '3', 'F – Stavebníctvo')}
+    ${renderCodelist('EconomicClassification', 'ICL001013', naceCode, naceName)}
     <DocumentIssued><Value>false</Value></DocumentIssued>
   </Posting>
   <OtherInformation>
@@ -136,9 +150,7 @@ export const generateA1Xml = (formData: FormDataState): void => {
   <Declaration>
     <TrueData>true</TrueData>
   </Declaration>
-  <ContactBranchOffice>
-     ${renderCodelist('Codelist', 'ICL001013', formData.pobocka || 'BA', 'Bratislava')}
-  </ContactBranchOffice>
+  ${renderCodelist('ContactBranchOffice', 'ICL001013', branchCode, branchName)}
   <IsForeigner>${formData.isForeigner}</IsForeigner>
 </ApplicationForTheIssueOfAPortableDocumentDueToSzcoPosting>`.trim();
 

@@ -62,6 +62,43 @@ async function startServer() {
     return response.data;
   };
 
+  // Combined RPO Endpoint (Search + Detail)
+  app.get("/api/rpo/entity", async (req, res) => {
+    try {
+      const { ico } = req.query;
+      if (!ico) {
+        return res.status(400).json({ error: "Missing ICO" });
+      }
+
+      // 1. Search
+      const searchUrl = `https://api.statistics.sk/rpo/v1/search?identifier=${ico}`;
+      console.log(`[Server] RPO Combined: Searching for ICO ${ico}`);
+      const searchData = await fetchData(searchUrl, process.env.BROWSERLESS_API_KEY);
+
+      if (!searchData.results || searchData.results.length === 0) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+
+      const entityId = searchData.results[0].id;
+      if (!entityId) {
+        return res.status(404).json({ error: "Entity ID not found in search results" });
+      }
+
+      // 2. Detail
+      const detailUrl = `https://api.statistics.sk/rpo/v1/entity/${entityId}?showHistoricalData=true&showOrganizationUnits=true`;
+      console.log(`[Server] RPO Combined: Fetching detail for ID ${entityId}`);
+      const detailData = await fetchData(detailUrl, process.env.BROWSERLESS_API_KEY);
+
+      res.json(detailData);
+    } catch (error: any) {
+      console.error("[Server] RPO Combined Error:", error.message);
+      res.status(error.response?.status || 500).json({ 
+        error: "Failed to fetch entity from RPO", 
+        details: error.response?.data || error.message 
+      });
+    }
+  });
+
   // RPO Proxy Routes
   app.get("/api/rpo/search", async (req, res) => {
     try {

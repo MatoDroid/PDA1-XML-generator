@@ -136,8 +136,17 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
       <ThemeSwitcher />
       <div className="fixed top-4 left-4 z-10">
-         <button onClick={() => setStep('welcome')} className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-blue-600 transition-colors" title="Návrat na úvod">
-           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+         <button 
+           onClick={() => {
+             setFormData(initialFormData);
+             setStep('welcome');
+           }} 
+           className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-red-600 transition-colors" 
+           title="Resetovať formulár a vrátiť sa na úvod"
+         >
+           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+           </svg>
          </button>
       </div>
       <main className="container mx-auto px-4 py-8 pt-20 max-w-5xl">

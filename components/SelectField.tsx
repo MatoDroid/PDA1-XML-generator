@@ -1,18 +1,14 @@
 
 import React from 'react';
 
-interface OptionObject {
-  value: string;
-  label: string;
-}
-
 interface SelectFieldProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
-  options: (string | OptionObject)[];
+  options: string[];
+  values?: string[];
   gridSpan?: string;
 }
 
-const SelectField: React.FC<SelectFieldProps> = ({ label, id, options, gridSpan = 'md:col-span-1', ...props }) => {
+const SelectField: React.FC<SelectFieldProps> = ({ label, id, options, values, gridSpan = 'md:col-span-1', ...props }) => {
   return (
     <div className={`w-full ${gridSpan}`}>
       <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-300">
@@ -24,16 +20,9 @@ const SelectField: React.FC<SelectFieldProps> = ({ label, id, options, gridSpan 
         {...props}
       >
         <option value="">Vyberte možnosť...</option>
-        {options.map(option => {
-          const isObject = typeof option !== 'string';
-          const value = isObject ? option.value : option;
-          const labelText = isObject ? option.label : option;
-          return (
-            <option key={value} value={value}>
-              {labelText}
-            </option>
-          );
-        })}
+        {options.map((option, index) => (
+          <option key={option} value={values ? values[index] : option}>{option}</option>
+        ))}
       </select>
     </div>
   );

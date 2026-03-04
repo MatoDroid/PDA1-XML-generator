@@ -8,12 +8,6 @@ export interface Address {
   stat: string;
 }
 
-export interface PostingPlace {
-  nazov: string;
-  ico: string;
-  adresa: Address;
-}
-
 export interface FormDataState {
   // Ziadatel
   titulPred: string;
@@ -26,7 +20,7 @@ export interface FormDataState {
   miestoNarodenia: string;
   statNarodenia: string;
   statnaPrislusnost: string;
-  pohlavie: '1' | '2' | ''; // 1-muz, 2-zena
+  pohlavie: 'Muž' | 'Žena' | ''; // UI values, mapped to 1/2 in XML
   adresaPobytu: Address;
   email: string;
   telefon: string;
@@ -45,15 +39,18 @@ export interface FormDataState {
   identifikacneCisloVSocialnejPoistovni: string;
   cinnostSZCONaSlovensku: string;
   skNace: string; // Kód ekonomickej klasifikácie
+  dostupneCinnosti?: string[]; // Zoznam činností z RPO
 
   zadatAdresuMiestaPodnikania: boolean;
   adresaMiestaPodnikania: Address;
 
   // Vyslanie
-  statVyslania: string; // Hlavný štát vyslania (zvyčajne prvý alebo prevažujúci)
-  miestaVyslania: PostingPlace[];
+  statVyslania: string;
+  adresaVyslania: Address;
   datumZaciatkuVyslania: string;
   datumKoncaVyslania: string;
+  obchodneMenoPrijimajucejOsoby: string;
+  icoPrijimajucejOsoby: string;
   popisCinnosti: string;
   
   obvykleMiestoVykonuCinnosti: boolean;

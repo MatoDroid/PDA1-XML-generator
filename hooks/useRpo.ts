@@ -2,6 +2,7 @@
 // Import React to fix namespace errors
 import React, { useState, useEffect } from 'react';
 import { FormDataState, Address } from '../types';
+import { BRANCH_OFFICE_BY_PSC } from '../psc_mapping';
 
 // Fix: Address type properties must match the interface (supisneCislo, orientacneCislo instead of cislo)
 const emptyAddress: Address = { ulica: '', supisneCislo: '', orientacneCislo: '', obec: '', psc: '', stat: 'Slovenská republika' };
@@ -32,41 +33,58 @@ export const useRpo = (ico: string, setFormData: React.Dispatch<React.SetStateAc
             setError(null);
             setLoading(true);
             setSuccess(false);
+            console.log(`[RPO Debug] Starting search for ICO: ${cleanIco}`);
 
             try {
-                // 1. Vyhľadanie organizácie podľa IČO
-                const searchApiUrl = `https://api.statistics.sk/rpo/v1/search?identifier=${cleanIco}`;
-                const proxySearchUrl = `https://corsproxy.io/?${encodeURIComponent(searchApiUrl)}`;
+                // 1. Vyhľadanie organizácie podľa IČO (cez lokálny proxy server)
+                const searchApiUrl = `/api/rpo/search?identifier=${cleanIco}`;
+                console.log(`[RPO Debug] Search URL (local proxy): ${searchApiUrl}`);
 
-                const searchResponse = await fetch(proxySearchUrl, {
-                    headers: { 'Accept': 'application/json' }
-                });
+                const searchResponse = await fetch(searchApiUrl);
 
-                if (!searchResponse.ok) throw new Error('Nepodarilo sa spojiť s RPO vyhľadávaním.');
+                if (!searchResponse.ok) {
+                    const errorData = await searchResponse.json().catch(() => ({}));
+                    console.error(`[RPO Debug] Search failed:`, errorData);
+                    throw new Error(`Chyba RPO: ${errorData.details || errorData.error || searchResponse.statusText} (${searchResponse.status})`);
+                }
 
                 const searchData = await searchResponse.json();
+                console.log('[RPO Debug] Search Data:', searchData);
                 const results = searchData.results || [];
                 const entitySummary = results[0];
 
                 if (!entitySummary || !entitySummary.id) {
+                    console.warn(`[RPO Debug] No entity found for ICO: ${cleanIco}`);
                     throw new Error('Organizácia s týmto IČO nebola nájdená.');
                 }
 
-                // 2. Získanie detailu organizácie (obsahuje štatutárov a presné mená)
-                const detailApiUrl = `https://api.statistics.sk/rpo/v1/entity/${entitySummary.id}?showHistoricalData=true&showOrganizationUnits=true`;
-                const proxyDetailUrl = `https://corsproxy.io/?${encodeURIComponent(detailApiUrl)}`;
+                // 2. Získanie detailu organizácie (cez lokálny proxy server)
+                const detailApiUrl = `/api/rpo/detail/${entitySummary.id}`;
+                console.log(`[RPO Debug] Detail URL (local proxy): ${detailApiUrl}`);
 
-                const detailResponse = await fetch(proxyDetailUrl, {
-                    headers: { 'Accept': 'application/json' }
-                });
+                const detailResponse = await fetch(detailApiUrl);
 
-                if (!detailResponse.ok) throw new Error('Nepodarilo sa stiahnuť detail organizácie.');
+                if (!detailResponse.ok) {
+                    const errorData = await detailResponse.json().catch(() => ({}));
+                    console.error(`[RPO Debug] Detail fetch failed:`, errorData);
+                    throw new Error(`Chyba RPO detail: ${errorData.details || errorData.error || detailResponse.statusText} (${detailResponse.status})`);
+                }
 
                 const entity = await detailResponse.json();
+                console.log('[RPO Debug] Entity Detail Data:', entity);
 
                 // --- Mapovanie dát podľa štruktúry v1 ---
                 const obchodneMeno = entity.fullNames?.[0]?.value || '';
                 const datumZaciatkuCinnosti = entity.establishment || '';
+
+                // Extract economic activities
+                // Filter: has validFrom, no validTo (or validTo is null/empty)
+                const activities = entity.activities || [];
+                const activeActivities = Array.isArray(activities) 
+                    ? activities
+                        .filter((a: any) => a.economicActivityDescription && a.validFrom && !a.validTo)
+                        .map((a: any) => a.economicActivityDescription)
+                    : [];
 
                 const addr = entity.addresses?.[0];
                 // Fix: Map RPO address fields to Address interface properties
@@ -83,6 +101,13 @@ export const useRpo = (ico: string, setFormData: React.Dispatch<React.SetStateAc
                     const newState = { ...prev };
                     newState.obchodneMeno = obchodneMeno;
                     newState.datumZaciatkuCinnosti = datumZaciatkuCinnosti;
+                    newState.dostupneCinnosti = activeActivities;
+                    
+                    // Pre-fill only if exactly one activity is found and field is empty
+                    if (activeActivities.length === 1 && !newState.cinnostSZCONaSlovensku) {
+                        newState.cinnostSZCONaSlovensku = activeActivities[0];
+                    }
+                    
                     newState.adresaMiestaPodnikania = adresaMiestaPodnikania;
                     newState.zadatAdresuMiestaPodnikania = !!addr;
 
@@ -106,6 +131,15 @@ export const useRpo = (ico: string, setFormData: React.Dispatch<React.SetStateAc
                                 psc: sa.postalCodes?.[0] || '',
                                 stat: sa.country?.value || 'Slovenská republika',
                             };
+                            
+                            // Auto-select branch based on PSC
+                            if (newState.adresaPobytu.psc) {
+                                const cleanPsc = newState.adresaPobytu.psc.replace(/\s/g, '');
+                                const branchCode = BRANCH_OFFICE_BY_PSC[cleanPsc];
+                                if (branchCode) {
+                                    newState.pobocka = branchCode;
+                                }
+                            }
                         }
                     }
 

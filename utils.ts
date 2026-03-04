@@ -1,6 +1,6 @@
 
 import { FormDataState, Address } from './types';
-import { COUNTRY_MAP, BRANCH_OFFICES, NACE_CATEGORIES } from './constants';
+import { COUNTRY_MAP } from './constants';
 
 export const escapeXml = (unsafe: string): string => {
   if (typeof unsafe !== 'string') return '';
@@ -51,22 +51,32 @@ const renderPhysicalAddress = (addr: Address) => `
       ${renderCodelist('Country', 'CL000086', COUNTRY_MAP[addr.stat] || '703', addr.stat)}
     </PhysicalAddress>`;
 
+const renderAffix = (tagName: string, position: string, value: string, codelistCode: string) => {
+  if (!value) return '';
+  // Simple mapping for common titles to codes (not exhaustive but better than hardcoded 01)
+  const titleMap: Record<string, string> = {
+    'Bc.': '01', 'Mgr.': '02', 'Ing.': '03', 'MUDr.': '04', 'MVDr.': '05',
+    'PaedDr.': '06', 'PharmDr.': '07', 'PhDr.': '08', 'JUDr.': '09', 'RNDr.': '10',
+    'ThDr.': '11', 'doc.': '12', 'prof.': '13',
+    'PhD.': '01', 'CSc.': '02', 'DrSc.': '03', 'MBA': '04', 'MPH': '05', 'LL.M.': '06'
+  };
+  const itemCode = titleMap[value] || '01';
+  
+  return `
+    <Affix position="${position}">
+      <Codelist>
+        <CodelistCode>${codelistCode}</CodelistCode>
+        <CodelistItem>
+          <ItemCode>${itemCode}</ItemCode>
+          <ItemName>${escapeXml(value)}</ItemName>
+        </CodelistItem>
+      </Codelist>
+    </Affix>`;
+};
+
 export const generateA1Xml = (formData: FormDataState): void => {
   const today = new Date().toISOString().split('T')[0];
   
-  // Zistenie hlavného štátu vyslania
-  const mainCountry = formData.miestaVyslania[0]?.adresa.stat || formData.statVyslania || 'Nemecko';
-
-  // Logika pre získanie kódu a názvu pobočky (input môže byť kód 'BA' alebo názov 'Bratislava')
-  const selectedBranch = BRANCH_OFFICES.find(b => b.name === formData.pobocka) || BRANCH_OFFICES.find(b => b.code === formData.pobocka);
-  const branchCode = selectedBranch ? selectedBranch.code : (formData.pobocka || 'BA');
-  const branchName = selectedBranch ? selectedBranch.name : 'Bratislava';
-
-  // Logika pre SK NACE (input je zvyčajne názov z dropdownu)
-  const selectedNace = NACE_CATEGORIES.find(n => n.name === formData.skNace);
-  const naceCode = selectedNace ? selectedNace.code : '3';
-  const naceName = selectedNace ? selectedNace.name : (formData.skNace || 'F – Stavebníctvo');
-
   const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <ApplicationForTheIssueOfAPortableDocumentDueToSzcoPosting xmlns="http://schemas.gov.sk/form/30807484.Ziadost_o_vystavenie_prenosneho_dokumentu_A1_z_dovodu_vyslania_SZCO.sk.pda/12.0">
   <Applicant>
@@ -76,8 +86,8 @@ export const generateA1Xml = (formData: FormDataState): void => {
           <GivenName>${escapeXml(formData.meno)}</GivenName>
           <FamilyName>${escapeXml(formData.priezvisko)}</FamilyName>
           <GivenFamilyName>${escapeXml(formData.rodnePriezvisko || formData.priezvisko)}</GivenFamilyName>
-          ${formData.titulPred ? `<Affix position="prefix"><Codelist><CodelistCode>CL000062</CodelistCode><CodelistItem><ItemCode>01</ItemCode><ItemName>${escapeXml(formData.titulPred)}</ItemName></CodelistItem></Codelist></Affix>` : ''}
-          ${formData.titulZa ? `<Affix position="postfix"><NonCodelistData>${escapeXml(formData.titulZa)}</NonCodelistData></Affix>` : ''}
+          ${renderAffix('Affix', 'prefix', formData.titulPred, 'CL000062')}
+          ${renderAffix('Affix', 'postfix', formData.titulZa, 'CL000063')}
         </PersonName>
         <Birth>
           <DateOfBirth>${escapeXml(formData.datumNarodenia)}</DateOfBirth>
@@ -85,11 +95,19 @@ export const generateA1Xml = (formData: FormDataState): void => {
           ${renderCodelist('BirthCountry', 'CL000086', COUNTRY_MAP[formData.statNarodenia] || '703', formData.statNarodenia)}
         </Birth>
         ${renderCodelist('Nationality', 'CL010131', COUNTRY_MAP[formData.statnaPrislusnost] || '703', formData.statnaPrislusnost)}
-        ${renderCodelist('Gender', 'CL003003', formData.pohlavie || '1', formData.pohlavie === '2' ? 'žena' : 'muž')}
+        ${renderCodelist('Gender', 'CL003003', formData.pohlavie === 'Žena' ? '2' : '1', formData.pohlavie === 'Žena' ? 'žena' : 'muž')}
       </PhysicalPerson>
       ${renderPhysicalAddress(formData.adresaPobytu)}
       <ID>
-        ${renderCodelist('IdentifierType', 'CL004001', '9', 'Rodné číslo')}
+        <IdentifierType>
+          <Codelist>
+            <CodelistCode>CL004001</CodelistCode>
+            <CodelistItem>
+              <ItemCode>9</ItemCode>
+              <ItemName>Rodné číslo</ItemName>
+            </CodelistItem>
+          </Codelist>
+        </IdentifierType>
         <IdentifierValue>${escapeXml(formData.rodneCislo.replace(/\//g, ''))}</IdentifierValue>
       </ID>
       <TelephoneAddress>
@@ -120,26 +138,25 @@ export const generateA1Xml = (formData: FormDataState): void => {
       <RetainingPremises>true</RetainingPremises>
     </SZCO>
     <Places>
-      ${renderCodelist('Country', 'CL000086', COUNTRY_MAP[mainCountry] || '276', mainCountry)}
-      ${formData.miestaVyslania.map(place => `
+      ${renderCodelist('Country', 'CL000086', COUNTRY_MAP[formData.statVyslania] || '276', formData.statVyslania)}
       <Place>
         <PersonData>
           <CorporateBody>
-            <CorporateBodyFullName>${escapeXml(place.nazov)}</CorporateBodyFullName>
+            <CorporateBodyFullName>${escapeXml(formData.obchodneMenoPrijimajucejOsoby)}</CorporateBodyFullName>
           </CorporateBody>
-          ${renderPhysicalAddress(place.adresa)}
+          ${renderPhysicalAddress(formData.adresaVyslania)}
           <ID>
             ${renderCodelist('IdentifierType', 'CL004001', '7', 'IČO (Identifikačné číslo organizácie)')}
-            <IdentifierValue>${escapeXml(place.ico || '00000000')}</IdentifierValue>
+            <IdentifierValue>${escapeXml(formData.icoPrijimajucejOsoby || '00000000')}</IdentifierValue>
           </ID>
         </PersonData>
-      </Place>`).join('')}
+      </Place>
     </Places>
     <SendingDuration>
       <Start>${escapeXml(formData.datumZaciatkuVyslania)}</Start>
       <End>${escapeXml(formData.datumKoncaVyslania)}</End>
     </SendingDuration>
-    ${renderCodelist('EconomicClassification', 'ICL001013', naceCode, naceName)}
+    ${renderCodelist('EconomicClassification', 'ICL001013', formData.skNace || '3', 'F – Stavebníctvo')}
     <DocumentIssued><Value>false</Value></DocumentIssued>
   </Posting>
   <OtherInformation>
@@ -150,7 +167,9 @@ export const generateA1Xml = (formData: FormDataState): void => {
   <Declaration>
     <TrueData>true</TrueData>
   </Declaration>
-  ${renderCodelist('ContactBranchOffice', 'ICL001013', branchCode, branchName)}
+  <ContactBranchOffice>
+     ${renderCodelist('Codelist', 'ICL001013', formData.pobocka || 'BA', 'Bratislava')}
+  </ContactBranchOffice>
   <IsForeigner>${formData.isForeigner}</IsForeigner>
 </ApplicationForTheIssueOfAPortableDocumentDueToSzcoPosting>`.trim();
 

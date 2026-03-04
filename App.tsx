@@ -20,7 +20,7 @@ const initialFormData: FormDataState = {
   email: '', telefon: '', pobytovyPreukaz: false,
   zadatAdresuPrechodnehoPobytu: false, adresaPrechodnehoPobytu: { ...emptyAddress },
   zadatKorespodencnuAdresu: false, korespodencnaAdresa: { ...emptyAddress },
-  ico: '', obchodneMeno: '', datumZaciatkuCinnosti: '', identifikacneCisloVSocialnejPoistovni: '', cinnostSZCONaSlovensku: '', skNace: '3',
+  ico: '', obchodneMeno: '', datumZaciatkuCinnosti: '', identifikacneCisloVSocialnejPoistovni: '', cinnostSZCONaSlovensku: '', skNace: 'F',
   zadatAdresuMiestaPodnikania: false, adresaMiestaPodnikania: { ...emptyAddress },
   statVyslania: '', adresaVyslania: { ...emptyAddress, stat: '' }, dalsieMiestaVyslania: [], datumZaciatkuVyslania: '', datumKoncaVyslania: '',
   obchodneMenoPrijimajucejOsoby: '', icoPrijimajucejOsoby: '', popisCinnosti: '',

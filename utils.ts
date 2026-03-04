@@ -1,6 +1,6 @@
 
 import { FormDataState, Address } from './types';
-import { COUNTRY_MAP } from './constants';
+import { COUNTRY_MAP, NACE_CATEGORIES } from './constants';
 
 export const escapeXml = (unsafe: string): string => {
   if (typeof unsafe !== 'string') return '';
@@ -171,7 +171,10 @@ export const generateA1Xml = (formData: FormDataState): void => {
       <Start>${escapeXml(formData.datumZaciatkuVyslania)}</Start>
       <End>${escapeXml(formData.datumKoncaVyslania)}</End>
     </SendingDuration>
-    ${renderCodelist('EconomicClassification', 'ICL001013', formData.skNace || '3', 'F – Stavebníctvo')}
+    ${(() => {
+      const nace = NACE_CATEGORIES.find(n => n.code === formData.skNace);
+      return renderCodelist('EconomicClassification', 'ICL001013', formData.skNace || 'F', nace ? nace.name : 'F – Stavebníctvo');
+    })()}
     <DocumentIssued><Value>false</Value></DocumentIssued>
   </Posting>
   <OtherInformation>

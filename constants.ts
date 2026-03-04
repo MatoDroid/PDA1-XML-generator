@@ -80,12 +80,27 @@ export const BRANCH_OFFICES = [
 ].sort((a, b) => a.name.localeCompare(b.name, 'sk'));
 
 export const NACE_CATEGORIES = [
-  { code: "1", name: "A – Poľnohospodárstvo, lesníctvo a rybolov" },
-  { code: "2", name: "C – Priemyselná výroba" },
-  { code: "3", name: "F – Stavebníctvo" },
-  { code: "4", name: "G – Veľkoobchod a maloobchod" },
-  { code: "5", name: "H – Doprava a skladovanie" },
-  { code: "6", name: "I – Ubytovacie a stravovacie služby" }
+  { code: "A", name: "A – Poľnohospodárstvo, lesníctvo a rybolov" },
+  { code: "B", name: "B – Ťažba a dobývanie" },
+  { code: "C", name: "C – Priemyselná výroba" },
+  { code: "D", name: "D – Dodávka elektriny, plynu, pary a studeného vzduchu" },
+  { code: "E", name: "E – Dodávka vody, čistenie a odvod odpadových vôd, odpady a služby odstraňovania odpadov" },
+  { code: "F", name: "F – Stavebníctvo" },
+  { code: "G", name: "G – Veľkoobchod a maloobchod, oprava motorových vozidiel a motocyklov" },
+  { code: "H", name: "H – Doprava a skladovanie" },
+  { code: "I", name: "I – Ubytovacie a stravovacie služby" },
+  { code: "J", name: "J – Informácie a komunikácia" },
+  { code: "K", name: "K – Finančné a poisťovacie činnosti" },
+  { code: "L", name: "L – Činnosti v oblasti nehnuteľností" },
+  { code: "M", name: "M – Odborné, vedecké a technické činnosti" },
+  { code: "N", name: "N – Administratívne a podporné služby" },
+  { code: "O", name: "O – Verejná správa a obrana, povinné sociálne zabezpečenia" },
+  { code: "P", name: "P – Vzdelávanie" },
+  { code: "Q", name: "Q – Zdravotníctvo a sociálna pomoc" },
+  { code: "R", name: "R – Umenie, zábava a rekreácia" },
+  { code: "S", name: "S – Ostatné činnosti" },
+  { code: "T", name: "T – Činnosti domácností ako zamestnávateľov" },
+  { code: "U", name: "U – Činnosti extrateritoriálnych organizácií a združení" }
 ];
 
 export const TITLES_BEFORE = [

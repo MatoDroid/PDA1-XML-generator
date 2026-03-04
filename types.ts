@@ -47,6 +47,7 @@ export interface FormDataState {
   // Vyslanie
   statVyslania: string;
   adresaVyslania: Address;
+  dalsieMiestaVyslania: Address[]; // Zoznam ďalších miest vyslania
   datumZaciatkuVyslania: string;
   datumKoncaVyslania: string;
   obchodneMenoPrijimajucejOsoby: string;

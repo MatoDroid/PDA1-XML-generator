@@ -146,11 +146,26 @@ export const generateA1Xml = (formData: FormDataState): void => {
           </CorporateBody>
           ${renderPhysicalAddress(formData.adresaVyslania)}
           <ID>
-            ${renderCodelist('IdentifierType', 'CL004001', '7', 'IČO (Identifikačné číslo organizácie)')}
+            <IdentifierType>
+              <Codelist>
+                <CodelistCode>CL004001</CodelistCode>
+                <CodelistItem>
+                  <ItemCode>7</ItemCode>
+                  <ItemName>IČO (Identifikačné číslo organizácie)</ItemName>
+                </CodelistItem>
+              </Codelist>
+            </IdentifierType>
             <IdentifierValue>${escapeXml(formData.icoPrijimajucejOsoby || '00000000')}</IdentifierValue>
           </ID>
         </PersonData>
       </Place>
+      ${formData.dalsieMiestaVyslania && formData.dalsieMiestaVyslania.map(miesto => `
+      <Place>
+        <PersonData>
+          ${renderPhysicalAddress(miesto)}
+        </PersonData>
+      </Place>
+      `).join('')}
     </Places>
     <SendingDuration>
       <Start>${escapeXml(formData.datumZaciatkuVyslania)}</Start>

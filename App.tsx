@@ -22,7 +22,7 @@ const initialFormData: FormDataState = {
   zadatKorespodencnuAdresu: false, korespodencnaAdresa: { ...emptyAddress },
   ico: '', obchodneMeno: '', datumZaciatkuCinnosti: '', identifikacneCisloVSocialnejPoistovni: '', cinnostSZCONaSlovensku: '', skNace: '3',
   zadatAdresuMiestaPodnikania: false, adresaMiestaPodnikania: { ...emptyAddress },
-  statVyslania: '', adresaVyslania: { ...emptyAddress, stat: '' }, datumZaciatkuVyslania: '', datumKoncaVyslania: '',
+  statVyslania: '', adresaVyslania: { ...emptyAddress, stat: '' }, dalsieMiestaVyslania: [], datumZaciatkuVyslania: '', datumKoncaVyslania: '',
   obchodneMenoPrijimajucejOsoby: '', icoPrijimajucejOsoby: '', popisCinnosti: '',
   obvykleMiestoVykonuCinnosti: true, nahradenieOsoby: false, vykonavanieCinnostiPreInuOsobu: false, najomPracovnejSily: false,
   pobocka: 'BA', poznamka: '', isForeigner: false
@@ -45,6 +45,20 @@ const App: React.FC = () => {
   const [step, setStep] = useState<'welcome' | 'form'>('welcome');
   const [formData, setFormData] = useState<FormDataState>(initialFormData);
   const { loading: rpoLoading, error: rpoError, success: icoFetchSuccess } = useRpo(formData.ico, setFormData);
+
+  // Derived state for date validation
+  const dateError = React.useMemo(() => {
+    if (formData.datumZaciatkuVyslania && formData.datumKoncaVyslania) {
+      // Robust comparison using Date objects
+      const start = new Date(formData.datumZaciatkuVyslania);
+      const end = new Date(formData.datumKoncaVyslania);
+      
+      if (end < start) {
+        return 'Dátum konca vyslania nesmie byť skôr ako dátum začiatku.';
+      }
+    }
+    return null;
+  }, [formData.datumZaciatkuVyslania, formData.datumKoncaVyslania]);
 
   useEffect(() => {
     if (icoFetchSuccess && step === 'welcome') {
@@ -150,7 +164,7 @@ const App: React.FC = () => {
          </button>
       </div>
       <main className="container mx-auto px-4 py-8 pt-20 max-w-5xl">
-        <form onSubmit={(e) => { e.preventDefault(); generateA1Xml(formData); }}>
+        <form onSubmit={(e) => { e.preventDefault(); if (!dateError) generateA1Xml(formData); }}>
           <FormSection title="1. Údaje o žiadateľovi">
             <InputField label="Titul pred menom" id="titulPred" name="titulPred" value={formData.titulPred} onChange={handleChange} suggestions={TITLES_BEFORE} />
             <InputField label="Meno" id="meno" name="meno" value={formData.meno} onChange={handleChange} required />
@@ -201,14 +215,118 @@ const App: React.FC = () => {
           </FormSection>
 
           <FormSection title="3. Údaje o vyslaní a doručení">
-            <InputField label="Začiatok vyslania" id="datumZaciatkuVyslania" name="datumZaciatkuVyslania" type="date" value={formData.datumZaciatkuVyslania} onChange={handleChange} required />
-            <InputField label="Koniec vyslania" id="datumKoncaVyslania" name="datumKoncaVyslania" type="date" value={formData.datumKoncaVyslania} onChange={handleChange} required />
+            <div className="md:col-span-3 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="flex flex-col">
+                        <InputField 
+                            label="Začiatok vyslania" 
+                            id="datumZaciatkuVyslania" 
+                            name="datumZaciatkuVyslania" 
+                            type="date" 
+                            value={formData.datumZaciatkuVyslania} 
+                            onChange={handleChange} 
+                            required 
+                            error={!!dateError}
+                        />
+                        {dateError && <span className="text-[10px] uppercase tracking-wider text-red-600 dark:text-red-400 mt-1 font-bold animate-pulse">Chybný dátum</span>}
+                    </div>
+                    <div className="flex flex-col">
+                        <InputField 
+                            label="Koniec vyslania" 
+                            id="datumKoncaVyslania" 
+                            name="datumKoncaVyslania" 
+                            type="date" 
+                            value={formData.datumKoncaVyslania} 
+                            onChange={handleChange} 
+                            required 
+                            min={formData.datumZaciatkuVyslania}
+                            error={!!dateError}
+                        />
+                        {dateError && <span className="text-[10px] uppercase tracking-wider text-red-600 dark:text-red-400 mt-1 font-bold animate-pulse">Nesmie byť pred začiatkom</span>}
+                    </div>
+                </div>
+                
+                {dateError && (
+                    <div className="p-5 bg-red-600 text-white rounded-2xl shadow-lg flex items-center gap-4 transform transition-all scale-100 hover:scale-[1.01]" role="alert">
+                        <div className="bg-white/20 p-2 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p className="font-bold text-lg leading-tight">Chyba v dátumoch vyslania</p>
+                            <p className="text-sm opacity-90">{dateError}</p>
+                        </div>
+                    </div>
+                )}
+            </div>
             <InputField label="Obchodné meno prijímajúcej osoby" id="obchodneMenoPrijimajucejOsoby" name="obchodneMenoPrijimajucejOsoby" value={formData.obchodneMenoPrijimajucejOsoby} onChange={handleChange} required gridSpan="md:col-span-3" />
             <div className="md:col-span-3 mt-4 border-t border-gray-200 dark:border-gray-700 pt-6">
                  <h3 className="text-lg font-medium mb-4">Adresa v štáte vyslania</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <SelectField label="Štát" id="statVyslania" name="statVyslania" value={formData.statVyslania} onChange={handleChange} required options={COUNTRIES} />
                     <AddressFields address={formData.adresaVyslania} namePrefix="adresaVyslania" onChange={handleChange} required showStat={false} />
+                 </div>
+                 
+                 {/* Ďalšie miesta vyslania */}
+                 <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ďalšie miesta výkonu činnosti (voliteľné)</label>
+                    {formData.dalsieMiestaVyslania && formData.dalsieMiestaVyslania.map((miesto, index) => (
+                        <div key={index} className="relative mt-4 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-700">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const newMiesta = [...formData.dalsieMiestaVyslania];
+                                    newMiesta.splice(index, 1);
+                                    setFormData(prev => ({ ...prev, dalsieMiestaVyslania: newMiesta }));
+                                }}
+                                className="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1"
+                                title="Odstrániť miesto"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                            </button>
+                            <h4 className="text-sm font-medium mb-3 text-gray-500 dark:text-gray-400">Miesto č. {index + 2}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <AddressFields 
+                                    address={miesto}
+                                    namePrefix={`dalsieMiestaVyslania.${index}`}
+                                    onChange={(e) => {
+                                        const { name, value } = e.target;
+                                        // name format: dalsieMiestaVyslania.0.ulica
+                                        const parts = name.split('.');
+                                        const field = parts[2]; // ulica
+                                        if (field) {
+                                            const newMiesta = [...formData.dalsieMiestaVyslania];
+                                            newMiesta[index] = { ...newMiesta[index], [field]: value };
+                                            setFormData(prev => ({ ...prev, dalsieMiestaVyslania: newMiesta }));
+                                        }
+                                    }}
+                                    showStat={false}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                    
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setFormData(prev => ({
+                                ...prev,
+                                dalsieMiestaVyslania: [
+                                    ...(prev.dalsieMiestaVyslania || []),
+                                    { ...emptyAddress, stat: formData.statVyslania || 'Rakúsko' }
+                                ]
+                            }));
+                        }}
+                        className="mt-3 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800 transition-colors"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                        </svg>
+                        Pridať ďalšie miesto výkonu činnosti
+                    </button>
                  </div>
             </div>
             <SelectField 
@@ -223,8 +341,20 @@ const App: React.FC = () => {
             <InputField label="Doplňujúce informácie" id="poznamka" name="poznamka" type="textarea" value={formData.poznamka} onChange={handleChange} gridSpan="md:col-span-2" />
           </FormSection>
           
-          <div className="mt-12 flex justify-center pb-12">
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-12 rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95">
+          <div className="mt-12 flex flex-col items-center justify-center pb-12">
+            {dateError && (
+                <p className="text-red-600 dark:text-red-400 font-medium mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {dateError}
+                </p>
+            )}
+            <button 
+                type="submit" 
+                disabled={!!dateError}
+                className={`font-bold py-4 px-12 rounded-2xl shadow-xl transition-all ${dateError ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 active:scale-95'}`}
+            >
               Generovať a stiahnuť XML
             </button>
           </div>

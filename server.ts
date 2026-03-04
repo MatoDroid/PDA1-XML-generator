@@ -11,42 +11,45 @@ async function startServer() {
 
   // Helper function to fetch data
   const fetchData = async (url: string, browserlessToken?: string) => {
-    // 1. Try Browserless if token is present
-    if (browserlessToken) {
+    // 1. Try Browserless if token is present and valid
+    if (browserlessToken && browserlessToken.trim().length > 0) {
       console.log(`[Server] Attempting Browserless proxy for: ${url}`);
       try {
-        const browserlessUrl = `https://chrome.browserless.io/function?token=${browserlessToken}`;
+        // Use /content endpoint which is simpler and just returns the page HTML/text
+        const browserlessUrl = `https://chrome.browserless.io/content?token=${browserlessToken}`;
         const response = await axios.post(browserlessUrl, {
-          code: `module.exports = async ({ page, context }) => {
-            return page.evaluate(async (url) => {
-              try {
-                const res = await fetch(url, {
-                  headers: { 
-                    'Accept': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                  }
-                });
-                if (!res.ok) return { error: res.statusText, status: res.status };
-                return res.json();
-              } catch (err) {
-                return { error: err.toString() };
-              }
-            }, context.url);
-          };`,
-          context: { url }
+          url: url,
+          waitFor: 'networkidle0',
+          setJavaScriptEnabled: true
         }, {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 40000
         });
 
-        // Check if the browserless function returned an error object
-        if (response.data && response.data.error) {
-          console.warn(`[Server] Browserless function returned error:`, response.data);
-          throw new Error(`Browserless error: ${response.data.error}`);
+        if (response.data) {
+          // The response is the HTML content. We need to extract the JSON from the body.
+          // Since it's a JSON API, the body should just be the JSON string.
+          const content = response.data;
+          // Clean up HTML if browserless wrapped it (though for JSON it usually doesn't)
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : content;
+          
+          try {
+            return JSON.parse(jsonStr);
+          } catch (e) {
+            console.warn(`[Server] Browserless returned non-JSON content, trying to strip HTML...`);
+            // Try to extract text between <body> tags if it's wrapped in HTML
+            const bodyMatch = content.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+            const bodyText = bodyMatch ? bodyMatch[1].replace(/<[^>]*>/g, '').trim() : content.replace(/<[^>]*>/g, '').trim();
+            return JSON.parse(bodyText);
+          }
         }
-
-        return response.data;
+        
+        throw new Error('No content returned from Browserless');
       } catch (error: any) {
-        console.error(`[Server] Browserless failed: ${error.message}. Falling back to direct request.`);
+        const status = error.response?.status;
+        const errorData = error.response?.data;
+        console.error(`[Server] Browserless failed (Status ${status}): ${error.message}`, errorData);
         // Fallback proceeds below
       }
     }
